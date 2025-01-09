@@ -1,0 +1,207 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  pothole
+
+  Sample SAM Template for pothole
+
+# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
+Globals:
+  Function:
+    Timeout: 3
+    MemorySize: 128
+
+    Tracing: Active
+    # You can add LoggingConfig parameters such as the Logformat, Log Group, and SystemLogLevel or ApplicationLogLevel. Learn more here https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-resource-function.html#sam-function-loggingconfig.
+    LoggingConfig:
+      LogFormat: JSON
+  Api:
+    TracingEnabled: true
+Resources:
+  MyApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: prod
+      Cors:
+        AllowMethods: "'GET,POST,OPTIONS'"
+        AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+        AllowOrigin: "'*'"
+        MaxAge: "'300'"
+
+  GenerateReportFunction:
+    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    Properties:
+      CodeUri: handlers/
+      Handler: generate_report.lambda_handler
+      Runtime: python3.9
+      Architectures:
+        - x86_64
+        # Add permission for API Gateway to invoke this function
+      Policies:
+        - Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action:
+                - "execute-api:Invoke"
+              Resource: "*"
+      Events:
+        HelloWorld:
+          Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
+          Properties:
+            RestApiId: !Ref MyApi
+            Path: generate_report
+            Method: post
+    Connectors:
+      ConectorForMyDynamoTable:
+        Properties:
+          Destination:
+            Id: PotholeDDB2
+          Permissions:
+            - Write
+            - Read
+  # Explicitly grant API Gateway permission to invoke the Lambda function
+  ReportPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref GenerateReportFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${MyApi}/*"
+
+  ReturnPotholeFunction:
+    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    Properties:
+      CodeUri: handlers/
+      Handler: return_pothole.lambda_handler
+      Runtime: python3.9
+      Architectures:
+        - x86_64
+        # Add permission for API Gateway to invoke this function
+      Policies:
+        - Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action:
+                - "execute-api:Invoke"
+              Resource: "*"
+      Events:
+        HelloWorld:
+          Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
+          Properties:
+            RestApiId: !Ref MyApi
+            Path: return
+            Method: get
+    Connectors:
+      ConectorForMyDynamoTable:
+        Properties:
+          Destination:
+            Id: PotholeDDB2
+          Permissions:
+            - Read
+  # Explicitly grant API Gateway permission to invoke the Lambda function
+  ReturnPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref ReturnPotholeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${MyApi}/*"
+
+  FindLocation:
+    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    Properties:
+      CodeUri: handlers/
+      Handler: find_location.lambda_handler
+      Runtime: python3.9
+      Architectures:
+        - x86_64
+        # Add permission for API Gateway to invoke this function
+      Policies:
+        - Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action:
+                - "execute-api:Invoke"
+              Resource: "*"
+      Events:
+        HelloWorld:
+          Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
+          Properties:
+            RestApiId: !Ref MyApi
+            Path: find
+            Method: post
+
+    Connectors:
+      ConectorForMyDynamoTable:
+        Properties:
+          Destination:
+            Id: PotholeDDB2
+          Permissions:
+            - Read
+            - Write
+      ConectorForMyLocationServices:
+        Properties:
+          Destination:
+            Id: PlaceIndex
+          Permissions:
+            - Read
+  # Explicitly grant API Gateway permission to invoke the Lambda function
+  FindPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref FindLocation
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${MyApi}/*"
+
+  PlaceIndex:
+    Type: AWS::Location::PlaceIndex
+    Properties:
+      DataSource: Esri # or 'Here' if you prefer HERE as provider
+      Description: Place index for pothole tracking
+      IndexName: pothole-place-index
+      PricingPlan: RequestBasedUsage # or 'MobileAssetTracking' or 'MobileAssetManagement'
+      DataSourceConfiguration:
+        IntendedUse: SingleUse # or 'Storage'
+
+  PotholeDDB2:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Delete
+    Properties:
+      TableName: PotholeDDB2 # Replace with your desired table name
+      AttributeDefinitions:
+        - AttributeName: pothole_id # Replace with your desired primary key name
+          AttributeType: S # Replace with the appropriate data type for your primary key
+      KeySchema:
+        - AttributeName: pothole_id # Replace with your desired primary key name
+          KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5 # Adjust read capacity units as needed
+        WriteCapacityUnits: 5 # Adjust write capacity units as needed
+
+  ApplicationResourceGroup:
+    Type: AWS::ResourceGroups::Group
+    Properties:
+      Name:
+        Fn::Sub: ApplicationInsights-SAM-${AWS::StackName}
+      ResourceQuery:
+        Type: CLOUDFORMATION_STACK_1_0
+  ApplicationInsightsMonitoring:
+    Type: AWS::ApplicationInsights::Application
+    Properties:
+      ResourceGroupName:
+        Ref: ApplicationResourceGroup
+      AutoConfigurationEnabled: "true"
+Outputs:
+  # ServerlessRestApi is an implicit API created out of Events key under Serverless::Function
+  # Find out more about other implicit resources you can reference within SAM
+  # https://github.com/awslabs/serverless-application-model/blob/master/docs/internals/generated_resources.rst#api
+  HelloWorldApi:
+    Description: API Gateway endpoint URL for Prod stage for Hello World function
+    Value: !Sub "https://${MyApi}.execute-api.${AWS::Region}.amazonaws.com/prod/generate_report"
+  # GenerateReportFunction:
+  #   Description: Hello World Lambda Function ARN
+  #   Value: !GetAtt GenerateReportFunction.Arn
+  # GenerateReportFunctionIamRole:
+  #   Description: Implicit IAM Role created for Hello World function
+  #   Value: !GetAtt GenerateReportFunctionRole.Arn
