@@ -42,7 +42,7 @@ class PotholeModel(object):
     #helper function for from_dynamo
     def from_item(self, item):
         self.pothole_id = item.get("pothole_id")
-        self.account_id = item.get("account_id")
+        self.account_id = str(item.get("account_id"))
         self.longitude = float(item.get("longitude"))
         self.latitude = float(item.get("latitude"))
         self.time = item.get("time")

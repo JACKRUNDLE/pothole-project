@@ -6,7 +6,7 @@ dynamodb = boto3.resource('dynamodb')
 potholeTable = dynamodb.Table('PotholeDDB1')
 
 def lambda_handler(event, context):
-
+    print(event)
     response = potholeTable.scan()
     print(response)
 

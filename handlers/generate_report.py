@@ -1,9 +1,11 @@
 import boto3
 import json
+from boto3.dynamodb.conditions import Attr
 
 from data_model import PotholeModel
 dynamodb = boto3.resource('dynamodb')
 potholeTable = dynamodb.Table('PotholeDDB2')
+
 
 #converts payload to json else returns origional json
 def convert_to_json(data):
@@ -12,9 +14,13 @@ def convert_to_json(data):
         return payload
     except Exception:
         return data
+    
 
 def lambda_handler(event, context):
-    response = potholeTable.scan()
+    payload = event.get("body")
+    payload = convert_to_json(payload)
+    acct_id = (payload.get("account_id"))
+    response = potholeTable.scan(FilterExpression=Attr("account_id").eq(acct_id))
     address_list = []
     for item in response.get("Items"):
         my_pothole = PotholeModel()
@@ -25,11 +31,6 @@ def lambda_handler(event, context):
         my_pothole.to_dynamo()
 
     
-
-    
-
-  
-
     
     # print("response: ", response)
     # address = json.dumps(response['Results'][0]['Place']['Label'])

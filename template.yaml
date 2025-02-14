@@ -28,6 +28,54 @@ Resources:
         AllowOrigin: "'*'"
         MaxAge: "'300'"
 
+  GenerateEmailFunction:
+    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    Properties:
+      CodeUri: handlers/
+      Handler: generate_email.lambda_handler
+      Runtime: python3.9
+      Architectures:
+        - x86_64
+        # Add permission for API Gateway to invoke this function
+      Policies:
+        - Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action:
+                - "execute-api:Invoke"
+              Resource: "*"
+        - Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action:
+                - ses:SendEmail
+                - ses:SendRawEmail
+              Resource: "*"
+      Events:
+        HelloWorld:
+          Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
+          Properties:
+            RestApiId: !Ref MyApi
+            Path: generate_email
+            Method: post
+    Connectors:
+      ConectorForMyDynamoTable:
+        Properties:
+          Destination:
+            Id: PotholeDDB2
+          Permissions:
+            - Read
+            - Write
+
+  # Explicitly grant API Gateway permission to invoke the Lambda function
+  EmailPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref GenerateEmailFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${MyApi}/*"
+
   GenerateReportFunction:
     Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
     Properties:
@@ -107,11 +155,11 @@ Resources:
       Principal: apigateway.amazonaws.com
       SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${MyApi}/*"
 
-  FindLocation:
+  UploadPothole:
     Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
     Properties:
       CodeUri: handlers/
-      Handler: find_location.lambda_handler
+      Handler: upload_pothole.lambda_handler
       Runtime: python3.9
       Architectures:
         - x86_64
@@ -128,10 +176,17 @@ Resources:
           Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
           Properties:
             RestApiId: !Ref MyApi
-            Path: find
+            Path: upload
             Method: post
 
     Connectors:
+      ConectorForMyLocationServices:
+        Properties:
+          Destination:
+            Id: PlaceIndex
+          Permissions:
+            - Read
+
       ConectorForMyDynamoTable:
         Properties:
           Destination:
@@ -139,18 +194,12 @@ Resources:
           Permissions:
             - Read
             - Write
-      ConectorForMyLocationServices:
-        Properties:
-          Destination:
-            Id: PlaceIndex
-          Permissions:
-            - Read
   # Explicitly grant API Gateway permission to invoke the Lambda function
-  FindPermission:
+  UploadPermission:
     Type: AWS::Lambda::Permission
     Properties:
       Action: lambda:InvokeFunction
-      FunctionName: !Ref FindLocation
+      FunctionName: !Ref UploadPothole
       Principal: apigateway.amazonaws.com
       SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${MyApi}/*"
 
