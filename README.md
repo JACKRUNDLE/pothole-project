@@ -1,6 +1,6 @@
 # Pothole Project
 
-Most major cities provide an email portal to report potholes that simply require a location. As a commuter we encounter potholes but by the time we get home, we forget either where they were or to report them at all. Envisioned is a simple mobile app (phone, carplay, etc) connected to a service. Using the app, the a button is pressed when driving past a pothole. The app notes the location, and sends it to the service. At some interval, the service accumulates all the pothole reports and generates a well formatted email to the local municipality, which include an address and map thumbnail of each pothole.
+Most major cities provide an email portal to report potholes that simply require a location. As a commuter we encounter potholes but by the time we get home, we forget either where they were or to report them at all. Envisioned is a simple mobile app (phone, carplay, etc) connected to a service. Using the app, a button is pressed when driving past a pothole. The app notes the location, and sends it to the service. At some interval, the service accumulates all the pothole reports and generates a well formatted email to the local municipality, which include an address and map thumbnail of each pothole.
 
 The purpose of this project is to build service for reporting and recording potholes that can be sent to the city for repair. Also included is a test-web application that for now takes the place of the enisioned mobile app frontend.
 
